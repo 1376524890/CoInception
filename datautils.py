@@ -10,8 +10,8 @@ from scipy.io.arff import loadarff
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 def load_UCR(dataset):
-    train_file = os.path.join('../data/UCR', dataset, dataset + "_TRAIN.tsv")
-    test_file = os.path.join('../data/UCR', dataset, dataset + "_TEST.tsv")
+    train_file = os.path.join('./data/UCR', dataset, dataset + "_TRAIN.tsv")
+    test_file = os.path.join('./data/UCR', dataset, dataset + "_TEST.tsv")
     train_df = pd.read_csv(train_file, sep='\t', header=None)
     test_df = pd.read_csv(test_file, sep='\t', header=None)
     train_array = np.array(train_df)
@@ -96,8 +96,8 @@ def load_HAR():
 
         return np.array(res_data).swapaxes(1, 0), np.array(res_labels)
     
-    train_X, train_y = extract_data(f'../data/HAR/har/train/')
-    test_X, test_y = extract_data(f'../data/HAR/har/test/')
+    train_X, train_y = extract_data(f'./data/HAR/har/train/')
+    test_X, test_y = extract_data(f'./data/HAR/har/test/')
     
     scaler = StandardScaler()
     scaler.fit(train_X.reshape(-1, train_X.shape[-1]))
@@ -111,8 +111,8 @@ def load_HAR():
     return train_X, train_y, test_X, test_y
 
 def load_UEA(dataset):
-    train_data = loadarff(f'../data/UEA/{dataset}/{dataset}_TRAIN.arff')[0]
-    test_data = loadarff(f'../data/UEA/{dataset}/{dataset}_TEST.arff')[0]
+    train_data = loadarff(f'./data/UEA/{dataset}/{dataset}_TRAIN.arff')[0]
+    test_data = loadarff(f'./data/UEA/{dataset}/{dataset}_TEST.arff')[0]
     
     def extract_data(data):
         res_data = []
@@ -140,7 +140,7 @@ def load_UEA(dataset):
     
     
 def load_forecast_npy(name, univar=False):
-    data = np.load(f'../data/{name}.npy')    
+    data = np.load(f'./data/{name}.npy')    
     if univar:
         data = data[: -1:]
         
@@ -169,7 +169,7 @@ def _get_time_features(dt):
 
 
 def load_forecast_csv(name, univar=False):
-    data = pd.read_csv(f'../data/{name}.csv', index_col='date', parse_dates=True)
+    data = pd.read_csv(f'./data/{name}.csv', index_col='date', parse_dates=True)
     dt_embed = _get_time_features(data.index)
     n_covariate_cols = dt_embed.shape[-1]
     
@@ -216,7 +216,7 @@ def load_forecast_csv(name, univar=False):
 
 
 def load_anomaly(name):
-    res = pkl_load(f'../data/{name}.pkl')
+    res = pkl_load(f'./data/{name}.pkl')
     return res['all_train_data'], res['all_train_labels'], res['all_train_timestamps'], \
            res['all_test_data'],  res['all_test_labels'],  res['all_test_timestamps'], \
            res['delay']

@@ -36,8 +36,8 @@ def _load_raw_KPI(train_filename, test_filename):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--train-file', type=str, default='../data/KPI/phase2_train.csv')
-    parser.add_argument('--test-file', type=str, default='../data/KPI/phase2_ground_truth.hdf')
+    parser.add_argument('--train-file', type=str, default='./data/KPI/phase2_train.csv')
+    parser.add_argument('--test-file', type=str, default='./data/KPI/phase2_ground_truth.hdf')
     parser.add_argument('-o', '--output', type=str, default='kpi.pkl')
     args = parser.parse_args()
 

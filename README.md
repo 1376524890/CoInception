@@ -29,11 +29,11 @@ cd data
 * [30 UEA datasets](http://www.timeseriesclassification.com): After downloading and unzip-ing the compressed file, rename the folder to `UEA`.
 * [3 ETT datasets](https://github.com/zhouhaoyi/ETDataset): Download 3 files `ETTh1.csv`, `ETTh2.csv` and `ETTm1.csv`.
 * [Electricity dataset](https://archive.ics.uci.edu/ml/datasets/ElectricityLoadDiagrams20112014): 
- After downloading and unzip-ing the compressed file, run preprocessing file at `CoInception/preprocessing/preprocess_electricity.py` and placed at `../data/electricity.csv`.
+ After downloading and unzip-ing the compressed file, run preprocessing file at `CoInception/preprocessing/preprocess_electricity.py` and placed at `./data/electricity.csv`.
 * [Yahoo dataset](https://webscope.sandbox.yahoo.com/catalog.php?datatype=s&did=70): 
-First register for using the dataset, then downloading and unzip-ing the compressed file, run preprocessing file at `CoInception/preprocessing/preprocess_yahoo.py` and placed at `../data/yahoo.pkl`.
+First register for using the dataset, then downloading and unzip-ing the compressed file, run preprocessing file at `CoInception/preprocessing/preprocess_yahoo.py` and placed at `./data/yahoo.pkl`.
 * [KPI dataset](http://test-10056879.file.myqcloud.com/10056879/test/20180524_78431960010324/KPI%E5%BC%82%E5%B8%B8%E6%A3%80%E6%B5%8B%E5%86%B3%E8%B5%9B%E6%95%B0%E6%8D%AE%E9%9B%86.zip): 
-After downloading and unzip-ing the compressed file, run preprocessing file at `CoInception/preprocessing/preprocess_kpi.py` and placed at `../data/kpi.pkl`.
+After downloading and unzip-ing the compressed file, run preprocessing file at `CoInception/preprocessing/preprocess_kpi.py` and placed at `./data/kpi.pkl`.
 
 
 ## Training and Evaluating
