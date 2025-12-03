@@ -25,6 +25,51 @@ import shutil
 import time
 import pickle
 import numpy as np
+from tqdm import tqdm
+
+def check_dataset_files(dataset_name, loader):
+    """检查数据集文件是否存在"""
+    if loader == 'UCR':
+        data_dir = os.path.join(os.getcwd(), 'data', 'UCR')
+        train_file = os.path.join(data_dir, f'{dataset_name}', f'{dataset_name}_TRAIN.ts')
+        test_file = os.path.join(data_dir, f'{dataset_name}', f'{dataset_name}_TEST.ts')
+        return os.path.exists(train_file) and os.path.exists(test_file)
+    elif loader == 'UEA':
+        data_dir = os.path.join(os.getcwd(), 'data', 'UEA')
+        train_file = os.path.join(data_dir, f'{dataset_name}', f'{dataset_name}_TRAIN.arff')
+        test_file = os.path.join(data_dir, f'{dataset_name}', f'{dataset_name}_TEST.arff')
+        return os.path.exists(train_file) and os.path.exists(test_file)
+    else:
+        # 其他类型的数据集检查
+        return True  # 暂时跳过其他类型的数据集检查
+
+def download_datasets_guide():
+    """显示数据集下载指南"""
+    guide = """
+    === 数据集文件缺失错误 ===
+    
+    当前系统缺少必要的数据集文件。请按照以下步骤解决：
+    
+    1. UEA数据集下载:
+       访问: http://www.timeseriesclassification.com/dataset.php
+       下载: UEA & UCR Time Series Classification Repository
+       解压后重命名为'UEA'文件夹
+       移动到: /home/codeserver/CoInception/data/UEA/
+    
+    2. UCR数据集下载:
+       访问: https://www.cs.ucr.edu/~eamonn/time_series_data_2018
+       下载UCR时间序列数据集
+       解压后重命名为'UCR'文件夹  
+       移动到: /home/codeserver/CoInception/data/UCR/
+    
+    3. 其他数据集请参考项目README.md文件
+    
+    详细说明请查看: /home/codeserver/CoInception/data/download_uea_data.sh
+    
+    运行以下命令查看帮助:
+    cat /home/codeserver/CoInception/data/download_uea_data.sh
+    """
+    print(guide)
 
 class CompleteAnalysisRunner:
     def __init__(self, args):
@@ -110,6 +155,9 @@ class CompleteAnalysisRunner:
         print("开始训练模型...")
         print("=" * 60)
         
+        # 获取脚本所在目录，而不是当前工作目录
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        
         # 构建训练命令
         train_cmd = [
             sys.executable, 'train.py',
@@ -134,8 +182,8 @@ class CompleteAnalysisRunner:
         
         print(f"执行命令: {' '.join(train_cmd)}")
         
-        # 运行训练命令
-        result = subprocess.run(train_cmd, cwd=self.base_dir, capture_output=True, text=True)
+        # 运行训练命令，使用脚本所在目录作为工作目录
+        result = subprocess.run(train_cmd, cwd=script_dir, capture_output=True, text=True)
         
         if result.returncode != 0:
             print(f"训练失败! 错误信息:")
@@ -155,7 +203,10 @@ class CompleteAnalysisRunner:
         """查找训练生成的中间数据路径"""
         # 训练目录格式: training/<dataset_name>__<run_name>/
         training_run_dir = f"{self.args.dataset_name}__{self.args.run_name}"
-        intermediate_data_path = os.path.join(self.training_dir, training_run_dir, 'intermediate_data.pkl')
+        
+        # 获取脚本所在目录，而不是当前工作目录
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        intermediate_data_path = os.path.join(script_dir, 'training', training_run_dir, 'intermediate_data.pkl')
         
         if not os.path.exists(intermediate_data_path):
             print(f"找不到中间数据文件: {intermediate_data_path}")
@@ -163,11 +214,121 @@ class CompleteAnalysisRunner:
         
         return intermediate_data_path
     
+    @staticmethod
+    def check_dataset_files(dataset_name, loader):
+        """检查数据集文件是否存在"""
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # UEA数据集文件路径
+        if loader == 'UEA':
+            uea_dir = os.path.join(script_dir, 'data', 'UEA', dataset_name)
+            train_file = os.path.join(uea_dir, f"{dataset_name}_TRAIN.ts")
+            test_file = os.path.join(uea_dir, f"{dataset_name}_TEST.ts")
+            
+            if not os.path.exists(train_file) or not os.path.exists(test_file):
+                print(f"❌ UEA数据集文件缺失:")
+                print(f"   缺少: {train_file}")
+                print(f"   缺少: {test_file}")
+                print(f"   目录内容: {os.listdir(uea_dir) if os.path.exists(uea_dir) else '目录不存在'}")
+                return False
+            print(f"✅ UEA数据集文件检查通过")
+            return True
+            
+        # UCR数据集文件路径
+        elif loader == 'UCR':
+            ucr_dir = os.path.join(script_dir, 'data', 'UCR', dataset_name)
+            train_file = os.path.join(ucr_dir, f"{dataset_name}_TRAIN.ts")
+            test_file = os.path.join(ucr_dir, f"{dataset_name}_TEST.ts")
+            
+            if not os.path.exists(train_file) or not os.path.exists(test_file):
+                print(f"❌ UCR数据集文件缺失:")
+                print(f"   缺少: {train_file}")
+                print(f"   缺少: {test_file}")
+                return False
+            print(f"✅ UCR数据集文件检查通过")
+            return True
+            
+        # ETT预测数据集文件路径
+        elif loader == 'forecast_csv':
+            if dataset_name.startswith('ETT'):
+                ett_file = os.path.join(script_dir, 'data', 'ETT', f"{dataset_name}.csv")
+                if not os.path.exists(ett_file):
+                    print(f"❌ ETT数据集文件缺失:")
+                    print(f"   缺少: {ett_file}")
+                    print(f"   ETT目录内容: {os.listdir(os.path.join(script_dir, 'data', 'ETT')) if os.path.exists(os.path.join(script_dir, 'data', 'ETT')) else 'ETT目录不存在'}")
+                    return False
+                print(f"✅ ETT数据集文件检查通过")
+                return True
+            else:
+                # 其他CSV文件检查
+                csv_file = os.path.join(script_dir, 'data', f"{dataset_name}.csv")
+                if not os.path.exists(csv_file):
+                    print(f"❌ CSV数据集文件缺失:")
+                    print(f"   缺少: {csv_file}")
+                    return False
+                print(f"✅ CSV数据集文件检查通过")
+                return True
+                
+        # 异常检测数据集文件路径
+        elif loader == 'anomaly':
+            pkl_file = os.path.join(script_dir, 'data', f"{dataset_name}.pkl")
+            if not os.path.exists(pkl_file):
+                print(f"❌ 异常检测数据集文件缺失:")
+                print(f"   缺少: {pkl_file}")
+                return False
+            print(f"✅ 异常检测数据集文件检查通过")
+            return True
+            
+        else:
+            print(f"⚠️ 未知的数据集类型: {loader}")
+            return True  # 暂时跳过检查
+    
+    @staticmethod
+    def download_datasets_guide():
+        """提供数据集下载指南"""
+        print("\n" + "=" * 80)
+        print("数据集下载和设置指南")
+        print("=" * 80)
+        
+        print("\n📁 UEA 数据集:")
+        print("-" * 30)
+        print("1. 访问官网: http://www.timeseriesclassification.com/")
+        print("2. 进入 'Datasets' 页面")
+        print("3. 下载所需的多变量时间序列数据集")
+        print("4. 解压文件并将其放在 data/UEA/ 目录下")
+        print("5. 确保文件命名为: {数据集名}_TRAIN.arff 和 {数据集名}_TEST.arff")
+        print("\n示例:")
+        print("   - data/UEA/BasicMotions_TRAIN.arff")
+        print("   - data/UEA/BasicMotions_TEST.arff")
+        
+        print("\n📁 UCR 数据集:")
+        print("-" * 30)
+        print("1. 访问官网: http://www.timeseriesclassification.com/")
+        print("2. 进入 'UCR Archive' 页面")
+        print("3. 下载所需的单变量时间序列数据集")
+        print("4. 解压文件并将其放在 data/UCR/ 目录下")
+        print("5. 确保文件命名为: {数据集名}_TRAIN.ts 和 {数据集名}_TEST.ts")
+        print("\n示例:")
+        print("   - data/UCR/Chinatown_TRAIN.ts")
+        print("   - data/UCR/Chinatown_TEST.ts")
+        
+        print("\n📁 数据下载脚本:")
+        print("-" * 30)
+        print("运行以下命令执行自动下载脚本:")
+        print("   bash data/download_uea_data.sh")
+        
+        print("\n" + "=" * 80)
+        print("设置完成后，重新运行训练命令")
+        print("=" * 80)
+    
     def run_analysis(self):
         """运行分析脚本"""
         print("\n" + "=" * 60)
         print("开始分析中间数据...")
         print("=" * 60)
+        
+        # 获取脚本所在目录，而不是当前工作目录
+        script_dir = os.path.dirname(os.path.abspath(__file__))
         
         # 构建分析报告目录
         analysis_report_dir = os.path.join(self.results_dir, f"{self.args.dataset_name}__{self.args.run_name}_analysis")
@@ -181,8 +342,8 @@ class CompleteAnalysisRunner:
         
         print(f"执行命令: {' '.join(analysis_cmd)}")
         
-        # 运行分析命令
-        result = subprocess.run(analysis_cmd, cwd=self.base_dir, capture_output=True, text=True)
+        # 运行分析命令，使用脚本所在目录作为工作目录
+        result = subprocess.run(analysis_cmd, cwd=script_dir, capture_output=True, text=True)
         
         if result.returncode != 0:
             print(f"分析失败! 错误信息:")
@@ -202,6 +363,9 @@ class CompleteAnalysisRunner:
         print("开始生成可视化报告...")
         print("=" * 60)
         
+        # 获取脚本所在目录，而不是当前工作目录
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        
         # 构建可视化报告目录
         visualization_report_dir = os.path.join(self.results_dir, f"{self.args.dataset_name}__{self.args.run_name}_visualization")
         
@@ -214,8 +378,8 @@ class CompleteAnalysisRunner:
         
         print(f"执行命令: {' '.join(visualization_cmd)}")
         
-        # 运行可视化命令
-        result = subprocess.run(visualization_cmd, cwd=self.base_dir, capture_output=True, text=True)
+        # 运行可视化命令，使用脚本所在目录作为工作目录
+        result = subprocess.run(visualization_cmd, cwd=script_dir, capture_output=True, text=True)
         
         if result.returncode != 0:
             print(f"可视化失败! 错误信息:")
@@ -310,6 +474,13 @@ class CompleteAnalysisRunner:
         if run_name is None:
             run_name = loader
         
+        # 检查数据集文件是否存在
+        if not check_dataset_files(dataset_name, loader):
+            print(f"❌ 数据集文件缺失: {dataset_name}")
+            print(f"请检查 {loader} 数据集是否已正确下载到 data/{loader} 目录")
+            download_datasets_guide()
+            raise FileNotFoundError(f"数据集文件不存在: {dataset_name} ({loader})")
+        
         # 获取预设参数
         preset_params = self.preset_params.get(loader, {})
         
@@ -374,9 +545,8 @@ class CompleteAnalysisRunner:
             print(f"数据集数量: {len(datasets)}")
             print(f"{'-'*80}")
             
-            for dataset in datasets:
+            for dataset in tqdm(datasets, desc=f"{category} 数据集", leave=True):
                 current_dataset += 1
-                print(f"\n[{current_dataset}/{total_datasets}] 处理数据集: {dataset}")
                 
                 try:
                     result_info = self.run_single_dataset(dataset, loader)
@@ -386,8 +556,6 @@ class CompleteAnalysisRunner:
                     progress_path = os.path.join(self.results_dir, 'analysis_progress.pkl')
                     with open(progress_path, 'wb') as f:
                         pickle.dump(all_results, f)
-                    
-                    print(f"✅ 数据集 {dataset} 分析完成")
                     
                 except KeyboardInterrupt:
                     print("\n分析流程被用户中断!")

@@ -111,31 +111,71 @@ def load_HAR():
     return train_X, train_y, test_X, test_y
 
 def load_UEA(dataset):
-    train_data = loadarff(f'./data/UEA/{dataset}/{dataset}_TRAIN.arff')[0]
-    test_data = loadarff(f'./data/UEA/{dataset}/{dataset}_TEST.arff')[0]
+    # UEA数据集使用.ts文件格式，需要特殊解析
+    train_file = f'./data/UEA/{dataset}/{dataset}_TRAIN.ts'
+    test_file = f'./data/UEA/{dataset}/{dataset}_TEST.ts'
     
-    def extract_data(data):
-        res_data = []
-        res_labels = []
-        for t_data, t_label in data:
-            t_data = np.array([ d.tolist() for d in t_data ])
-            t_label = t_label.decode("utf-8")
-            res_data.append(t_data)
-            res_labels.append(t_label)
-        return np.array(res_data).swapaxes(1, 2), np.array(res_labels)
+    def parse_ts_file(file_path):
+        """解析.ts文件格式"""
+        data_lines = []
+        labels = []
+        
+        with open(file_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                # 跳过元数据行（以@开头）
+                if line.startswith('@'):
+                    continue
+                
+                # 解析数据行：特征:标签
+                if ':' in line:
+                    # 使用rsplit找到最后一个冒号，分割特征和标签
+                    parts = line.rsplit(':', 1)
+                    if len(parts) == 2:
+                        features_str, label = parts
+                        # 处理多重冒号的情况 - 将所有特征部分合并
+                        all_features = []
+                        for part in features_str.split(':'):
+                            if part.strip():
+                                try:
+                                    features = [float(x) for x in part.split(',') if x.strip()]
+                                    all_features.extend(features)
+                                except ValueError:
+                                    continue
+                        
+                        if all_features:
+                            data_lines.append(all_features)
+                            labels.append(label)
+        
+        return np.array(data_lines), np.array(labels)
     
-    train_X, train_y = extract_data(train_data)
-    test_X, test_y = extract_data(test_data)
+    # 解析训练和测试数据
+    train_X, train_y = parse_ts_file(train_file)
+    test_X, test_y = parse_ts_file(test_file)
     
+    # 将标签字符串转换为整数
+    unique_labels = np.unique(np.concatenate([train_y, test_y]))
+    label_to_int = {label: i for i, label in enumerate(unique_labels)}
+    train_y = np.array([label_to_int[label] for label in train_y])
+    test_y = np.array([label_to_int[label] for label in test_y])
+    
+    # 转换为正确的数据类型
+    train_X = train_X.astype(np.float32)
+    train_y = train_y.astype(np.int32)
+    test_X = test_X.astype(np.float32)
+    test_y = test_y.astype(np.int32)
+    
+    # 标准化
     scaler = StandardScaler()
-    scaler.fit(train_X.reshape(-1, train_X.shape[-1]))
-    train_X = scaler.transform(train_X.reshape(-1, train_X.shape[-1])).reshape(train_X.shape)
-    test_X = scaler.transform(test_X.reshape(-1, test_X.shape[-1])).reshape(test_X.shape)
+    scaler.fit(train_X)
+    train_X = scaler.transform(train_X)
+    test_X = scaler.transform(test_X)
     
-    labels = np.unique(train_y)
-    transform = { k : i for i, k in enumerate(labels)}
-    train_y = np.vectorize(transform.get)(train_y)
-    test_y = np.vectorize(transform.get)(test_y)
+    # 重塑为时间序列格式 (samples, timesteps, features)
+    # 这里假设数据是单变量的，需要添加通道维度
+    train_X = train_X.reshape(-1, train_X.shape[1], 1)
+    test_X = test_X.reshape(-1, test_X.shape[1], 1)
+    
     return train_X, train_y, test_X, test_y
     
     
@@ -164,12 +204,16 @@ def _get_time_features(dt):
         dt.day.to_numpy(),
         dt.dayofyear.to_numpy(),
         dt.month.to_numpy(),
-        dt.weekofyear.to_numpy(),
+        dt.isocalendar().week.to_numpy(),
     ], axis=1).astype(np.float32)
 
 
 def load_forecast_csv(name, univar=False):
-    data = pd.read_csv(f'./data/{name}.csv', index_col='date', parse_dates=True)
+    # ETT数据集文件位于 ./data/ETT/ 目录下
+    if name.startswith('ETT'):
+        data = pd.read_csv(f'./data/ETT/{name}.csv', index_col='date', parse_dates=True)
+    else:
+        data = pd.read_csv(f'./data/{name}.csv', index_col='date', parse_dates=True)
     dt_embed = _get_time_features(data.index)
     n_covariate_cols = dt_embed.shape[-1]
     

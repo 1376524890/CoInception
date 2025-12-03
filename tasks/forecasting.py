@@ -59,12 +59,38 @@ def eval_forecasting(model, data, train_slice, valid_slice, test_slice, scaler, 
         test_pred = test_pred.reshape(ori_shape)
         test_labels = test_labels.reshape(ori_shape)
         
-        if test_data.shape[0] > 1:
-            test_pred_inv = scaler.inverse_transform(test_pred.swapaxes(0, 3)).swapaxes(0, 3)
-            test_labels_inv = scaler.inverse_transform(test_labels.swapaxes(0, 3)).swapaxes(0, 3)
+        original_shape = test_pred.shape
+        
+        # 对于多变量且每个变量单独处理的情况（如electricity数据集）
+        if test_data.shape[0] > 1 and original_shape[-1] == 1:
+            # 重塑为 (变量数, 时间步数*预测长度, 1)
+            test_pred_3d = test_pred.reshape(test_data.shape[0], -1, 1)
+            test_labels_3d = test_labels.reshape(test_data.shape[0], -1, 1)
+            
+            # 转置为 (时间步数*预测长度, 变量数) 以匹配scaler的期望形状
+            test_pred_2d = test_pred_3d.squeeze(-1).T
+            test_labels_2d = test_labels_3d.squeeze(-1).T
+            
+            # 应用逆变换
+            test_pred_inv_2d = scaler.inverse_transform(test_pred_2d)
+            test_labels_inv_2d = scaler.inverse_transform(test_labels_2d)
+            
+            # 转回原始形状
+            test_pred_inv_3d = test_pred_inv_2d.T.reshape(test_data.shape[0], -1, 1)
+            test_labels_inv_3d = test_labels_inv_2d.T.reshape(test_data.shape[0], -1, 1)
+            
+            test_pred_inv = test_pred_inv_3d.reshape(original_shape)
+            test_labels_inv = test_labels_inv_3d.reshape(original_shape)
         else:
-            test_pred_inv = scaler.inverse_transform(test_pred)
-            test_labels_inv = scaler.inverse_transform(test_labels)
+            # 正常情况：重塑为二维数组以适应StandardScaler
+            test_pred_2d = test_pred.reshape(-1, original_shape[-1])
+            test_labels_2d = test_labels.reshape(-1, original_shape[-1])
+            # 应用逆变换
+            test_pred_inv_2d = scaler.inverse_transform(test_pred_2d)
+            test_labels_inv_2d = scaler.inverse_transform(test_labels_2d)
+            # 恢复原始形状
+            test_pred_inv = test_pred_inv_2d.reshape(original_shape)
+            test_labels_inv = test_labels_inv_2d.reshape(original_shape)
             
         out_log[pred_len] = {
             'norm': test_pred,
