@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
+import os
 from modules import InceptionTSEncoder
 from modules.losses import hierarchical_contrastive_loss_triplet
 from utils import take_per_row, split_with_nan, centerize_vary_length_series, torch_pad_nan
@@ -57,6 +58,13 @@ class CoInception:
         
         self.n_epochs = 0
         self.n_iters = 0
+        self.intermediate_data = {
+            'loss_history': [],  # 每个epoch的损失信息
+            'loss_components': [],  # 每个epoch的损失组件值
+            'representations': [],  # 编码器输出
+            'encoding_ability': [],  # 编码能力指标
+            'training_config': {}  # 训练配置
+        }
     
     def lowpassfilter(self, signal, thresh = 0.63, wavelet="db2"):
         thresh = thresh*np.nanmean(signal)
@@ -149,7 +157,7 @@ class CoInception:
                 out2s = self._net(take_per_row(x_smooth, crop_offset + crop_left, crop_eright - crop_left))
                 out2s = out2s[:, :crop_l]
 
-                loss = hierarchical_contrastive_loss_triplet(
+                loss, layer_losses = hierarchical_contrastive_loss_triplet(
                     out1,
                     out1s,
                     out2,
@@ -166,6 +174,24 @@ class CoInception:
                 
                 self.n_iters += 1
                 
+                # 保存中间数据（每100次迭代保存一次）
+                if self.n_iters % 100 == 0:
+                    # 保存编码器输出
+                    self.intermediate_data['representations'].append({
+                        'iter': self.n_iters,
+                        'out1': out1.cpu().detach().numpy(),
+                        'out1s': out1s.cpu().detach().numpy(),
+                        'out2': out2.cpu().detach().numpy(),
+                        'out2s': out2s.cpu().detach().numpy()
+                    })
+                    
+                    # 保存损失组件
+                    self.intermediate_data['loss_components'].append({
+                        'iter': self.n_iters,
+                        'total_loss': loss.item(),
+                        'layer_losses': layer_losses
+                    })
+                
                 if self.after_iter_callback is not None:
                     self.after_iter_callback(self, loss.item())
             
@@ -174,14 +200,41 @@ class CoInception:
             
             cum_loss /= n_epoch_iters
             loss_log.append(cum_loss)
+            
+            # 保存每个epoch的损失历史
+            self.intermediate_data['loss_history'].append({
+                'epoch': self.n_epochs,
+                'loss': cum_loss
+            })
+            
             if verbose:
                 print(f"Epoch #{self.n_epochs}: loss={cum_loss}")
             self.n_epochs += 1
             
             if self.after_epoch_callback is not None:
                 self.after_epoch_callback(self, cum_loss)
-            
+    
+        # 保存最终的训练配置
+        self.intermediate_data['training_config'] = {
+            'n_epochs': self.n_epochs,
+            'n_iters': self.n_iters,
+            'batch_size': self.batch_size,
+            'lr': self.lr,
+            'max_train_length': self.max_train_length
+        }
+        
         return loss_log
+    
+    def save_intermediate_data(self, path):
+        '''保存中间数据到文件
+        
+        Args:
+            path (str): 保存文件的路径
+        '''
+        import pickle
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'wb') as f:
+            pickle.dump(self.intermediate_data, f)
     
     def _eval_with_pooling(self, x, mask=None, slicing=None, encoding_window=None):
         out = self.net(x.to(self.device, non_blocking=True), mask)

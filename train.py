@@ -120,6 +120,11 @@ if __name__ == '__main__':
     t = time.time() - t
     print(f"\nTraining time: {datetime.timedelta(seconds=t)}\n")
 
+    # 保存中间数据
+    intermediate_data_path = f'{run_dir}/intermediate_data.pkl'
+    model.save_intermediate_data(intermediate_data_path)
+    print(f"Intermediate data saved to: {intermediate_data_path}")
+    
     if args.eval:
         if task_type == 'classification':
             out, eval_res = tasks.eval_classification(model, train_data, train_labels, test_data, test_labels, eval_protocol='svm', save_ckpt=args.save_ckpt)
