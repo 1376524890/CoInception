@@ -9,6 +9,8 @@ def eval_classification(model, train_data, train_labels, test_data, test_labels,
     test_repr = model.encode(test_data, encoding_window='full_series' if train_labels.ndim == 1 else None)
 
     if save_ckpt:
+        import os
+        os.makedirs('training/reps', exist_ok=True)
         np.save('training/reps/reps.npy', {'reps':test_repr, 'label': test_labels})
         
     if eval_protocol == 'linear':

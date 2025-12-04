@@ -8,6 +8,7 @@ from modules.coinception import CoInception
 import tasks
 import datautils
 from utils import init_dl_program, name_with_datetime, pkl_save, data_dropout
+from analysis_preset import get_preset_params
 
 
 if __name__ == '__main__':
@@ -27,7 +28,33 @@ if __name__ == '__main__':
     parser.add_argument('--eval', action="store_true", help='Whether to perform evaluation after training')
     parser.add_argument('--irregular', type=float, default=0, help='The ratio of missing observations (defaults to 0)')
     parser.add_argument('--save_ckpt', default=False, action='store_true', help='Whether to save checkpoint')
+    parser.add_argument('--preset', action='store_true', help='Use preset parameters from analysis_preset.py')
+    parser.add_argument('--save-intermediate', action='store_true', help='Save intermediate representations during training')
+    parser.add_argument('--save-path', type=str, default='./representations', help='Path to save intermediate representations')
     args = parser.parse_args()
+    
+    # Apply preset parameters if specified
+    if args.preset:
+        preset_params = get_preset_params()
+        print(f"Using preset parameters: {preset_params}")
+        
+        # Override arguments with preset values if not explicitly provided
+        if args.batch_size == 8:  # Default value
+            args.batch_size = preset_params['batch_size']
+        if args.lr == 0.001:  # Default value
+            args.lr = preset_params['lr']
+        if args.repr_dims == 320:  # Default value
+            args.repr_dims = preset_params['repr_dims']
+        if args.max_train_length == 3000:  # Default value
+            args.max_train_length = preset_params['max_train_length']
+        if args.seed is None:
+            args.seed = preset_params['seed']
+        if args.max_threads is None:
+            args.max_threads = preset_params['max_threads']
+        if not args.eval:
+            args.eval = preset_params['eval']
+        if not args.save_ckpt:
+            args.save_ckpt = preset_params['save_ckpt']
     
     print("Dataset:", args.dataset)
     print("Arguments:", str(args))
@@ -93,7 +120,9 @@ if __name__ == '__main__':
         batch_size=args.batch_size,
         lr=args.lr,
         output_dims=args.repr_dims,
-        max_train_length=args.max_train_length
+        max_train_length=args.max_train_length,
+        save_intermediate=args.save_intermediate,
+        save_path=args.save_path
     )
     
     run_dir = 'training/' + args.dataset + '__' + name_with_datetime(args.run_name)

@@ -23,7 +23,9 @@ class CoInception:
         max_train_length=None,
         temporal_unit=0,
         after_iter_callback=None,
-        after_epoch_callback=None
+        after_epoch_callback=None,
+        save_intermediate=False,
+        save_path='./representations'
     ):
         ''' Initialize a CoInception model.
         
@@ -39,6 +41,8 @@ class CoInception:
             temporal_unit (int): The minimum unit to perform temporal contrast. When training on a very long sequence, this param helps to reduce the cost of time and memory.
             after_iter_callback (Union[Callable, NoneType]): A callback function that would be called after each iteration.
             after_epoch_callback (Union[Callable, NoneType]): A callback function that would be called after each epoch.
+            save_intermediate (bool): Whether to save intermediate representations during training.
+            save_path (str): Path to save intermediate representations.
         '''
         
         super().__init__()
@@ -47,6 +51,8 @@ class CoInception:
         self.batch_size = batch_size
         self.max_train_length = max_train_length
         self.temporal_unit = temporal_unit
+        self.save_intermediate = save_intermediate
+        self.save_path = save_path
         
         self._net = InceptionTSEncoder(input_len=input_len, input_dims=input_dims, output_dims=output_dims, hidden_dims=hidden_dims, depth=depth).to(self.device)
         self.net = torch.optim.swa_utils.AveragedModel(self._net)
@@ -57,6 +63,12 @@ class CoInception:
         
         self.n_epochs = 0
         self.n_iters = 0
+        self.train_loss_log = []
+        self.intermediate_reprs = []
+        
+        # Create save directory if it doesn't exist
+        import os
+        os.makedirs(self.save_path, exist_ok=True)
     
     def lowpassfilter(self, signal, thresh = 0.63, wavelet="db2"):
         thresh = thresh*np.nanmean(signal)
@@ -174,8 +186,36 @@ class CoInception:
             
             cum_loss /= n_epoch_iters
             loss_log.append(cum_loss)
+            self.train_loss_log.append(cum_loss)
+            
             if verbose:
                 print(f"Epoch #{self.n_epochs}: loss={cum_loss}")
+            
+            # Save intermediate representations every few epochs
+            if self.save_intermediate and (self.n_epochs + 1) % 5 == 0:
+                # Use a small batch for saving representations
+                test_batch = next(iter(train_loader))[0][:2]  # Take first 2 samples
+                test_x, test_x_smooth = test_batch[:,0], test_batch[:,1]
+                test_x = test_x.to(self.device)
+                test_x_smooth = test_x_smooth.to(self.device)
+                
+                # Get representations
+                with torch.no_grad():
+                    repr1 = self.net(test_x).cpu().numpy()
+                    repr1s = self.net(test_x_smooth).cpu().numpy()
+                
+                # Save representations
+                self.save_representation(repr1, f"repr_epoch_{self.n_epochs}_original")
+                self.save_representation(repr1s, f"repr_epoch_{self.n_epochs}_smoothed")
+                
+                # Store for later use
+                self.intermediate_reprs.append({
+                    'epoch': self.n_epochs,
+                    'original': repr1,
+                    'smoothed': repr1s,
+                    'loss': cum_loss
+                })
+            
             self.n_epochs += 1
             
             if self.after_epoch_callback is not None:
@@ -331,6 +371,18 @@ class CoInception:
         '''
         torch.save(self.net.state_dict(), fn)
     
+    def save_representation(self, repr_data, filename):
+        ''' Save representation to file.
+        
+        Args:
+            repr_data (numpy.ndarray): The representation data to save.
+            filename (str): The filename to save.
+        '''
+        import os
+        import numpy as np
+        filepath = os.path.join(self.save_path, filename + '.npy')
+        np.save(filepath, repr_data)
+    
     def load(self, fn):
         ''' Load the model from a file.
         
@@ -339,4 +391,48 @@ class CoInception:
         '''
         state_dict = torch.load(fn, map_location=self.device)
         self.net.load_state_dict(state_dict)
+    
+    def compute_correlation(self, x, y):
+        ''' Compute correlation between two tensors.
+        
+        Args:
+            x (numpy.ndarray): First tensor.
+            y (numpy.ndarray): Second tensor.
+        
+        Returns:
+            float: Correlation coefficient.
+        '''
+        import numpy as np
+        return np.corrcoef(x.flatten(), y.flatten())[0, 1]
+    
+    def encode_with_details(self, data, mask=None, encoding_window=None, casual=False, sliding_length=None, sliding_padding=0, batch_size=None):
+        ''' Compute representations with additional details.
+        
+        Args:
+            data (numpy.ndarray): This should have a shape of (n_instance, n_timestamps, n_features). All missing data should be set to NaN.
+            mask (str): The mask used by encoder can be specified with this parameter. This can be set to 'binomial', 'continuous', 'all_true', 'all_false' or 'mask_last'.
+            encoding_window (Union[str, int]): When this param is specified, the computed representation would the max pooling over this window. This can be set to 'full_series', 'multiscale' or an integer specifying the pooling kernel size.
+            casual (bool): When this param is set to True, the future informations would not be encoded into representation of each timestamp.
+            sliding_length (Union[int, NoneType]): The length of sliding window. When this param is specified, a sliding inference would be applied on the time series.
+            sliding_padding (int): This param specifies the contextual data length used for inference every sliding windows.
+            batch_size (Union[int, NoneType]): The batch size used for inference. If not specified, this would be the same batch size as training.
+            
+        Returns:
+            dict: Dictionary containing representations and additional details.
+        '''
+        repr = self.encode(data, mask, encoding_window, casual, sliding_length, sliding_padding, batch_size)
+        
+        details = {
+            'representation': repr,
+            'shape': repr.shape,
+            'n_instances': repr.shape[0],
+            'n_timestamps': repr.shape[1] if len(repr.shape) > 2 else 1,
+            'repr_dims': repr.shape[-1],
+            'mean': np.mean(repr),
+            'std': np.std(repr),
+            'min': np.min(repr),
+            'max': np.max(repr)
+        }
+        
+        return details
     

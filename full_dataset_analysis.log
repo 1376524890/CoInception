@@ -1,0 +1,46 @@
+2025-12-04 04:00:10,035 - INFO - Starting full dataset analysis for CoInception
+2025-12-04 04:00:10,035 - INFO - Using preset parameters: {'batch_size': 8, 'repr_dims': 320, 'max_threads': 8, 'seed': 42, 'lr': 0.001, 'eval': True, 'save_ckpt': True, 'input_len': 512, 'hidden_dims': 64, 'depth': 3, 'temporal_unit': 0, 'max_train_length': 512, 'encoding_window': 'full_series'}
+2025-12-04 04:00:10,035 - INFO - 
+=== TEST MODE: Processing single dataset FordA from category ucr ===
+2025-12-04 04:00:10,036 - INFO - Processing dataset 1: FordA
+2025-12-04 04:00:10,036 - INFO - Running command: /home/codeserver/.conda/envs/coinception/bin/python3 train.py FordA coinception_FordA --loader UCR --batch-size 8 --repr-dims 320 --max-threads 8 --seed 42 --lr 0.001 --eval --save_ckpt --max-train-length 512
+2025-12-04 04:01:34,020 - ERROR - Failed to run CoInception on FordA
+2025-12-04 04:01:34,021 - ERROR - Return code: 1
+2025-12-04 04:01:34,021 - ERROR - Error output: Traceback (most recent call last):
+  File "/home/codeserver/CoInception/train.py", line 125, in <module>
+    out, eval_res = tasks.eval_classification(model, train_data, train_labels, test_data, test_labels, eval_protocol='svm', save_ckpt=args.save_ckpt)
+  File "/home/codeserver/CoInception/tasks/classification.py", line 12, in eval_classification
+    np.save('training/reps/reps.npy', {'reps':test_repr, 'label': test_labels})
+  File "<__array_function__ internals>", line 200, in save
+  File "/home/codeserver/.conda/envs/coinception/lib/python3.9/site-packages/numpy/lib/npyio.py", line 518, in save
+    file_ctx = open(file, "wb")
+FileNotFoundError: [Errno 2] No such file or directory: 'training/reps/reps.npy'
+
+2025-12-04 04:01:34,021 - INFO - 
+============================================================
+2025-12-04 04:01:34,021 - INFO - FULL DATASET ANALYSIS SUMMARY
+2025-12-04 04:01:34,021 - INFO - ============================================================
+2025-12-04 04:01:34,021 - INFO - Total datasets processed: 1
+2025-12-04 04:01:34,022 - INFO - Successful runs: 0
+2025-12-04 04:01:34,022 - INFO - Failed runs: 1
+2025-12-04 04:01:34,022 - INFO - 
+Failed datasets:
+2025-12-04 04:01:34,022 - INFO -   - ucr/FordA
+2025-12-04 04:01:34,022 - INFO - 
+Full dataset analysis completed!
+2025-12-04 04:01:52,661 - INFO - Starting full dataset analysis for CoInception
+2025-12-04 04:01:52,661 - INFO - Using preset parameters: {'batch_size': 8, 'repr_dims': 320, 'max_threads': 8, 'seed': 42, 'lr': 0.001, 'eval': True, 'save_ckpt': True, 'input_len': 512, 'hidden_dims': 64, 'depth': 3, 'temporal_unit': 0, 'max_train_length': 512, 'encoding_window': 'full_series'}
+2025-12-04 04:01:52,661 - INFO - 
+=== TEST MODE: Processing single dataset FordA from category ucr ===
+2025-12-04 04:01:52,661 - INFO - Processing dataset 1: FordA
+2025-12-04 04:01:52,661 - INFO - Running command: /home/codeserver/.conda/envs/coinception/bin/python3 train.py FordA coinception_FordA --loader UCR --batch-size 8 --repr-dims 320 --max-threads 8 --seed 42 --lr 0.001 --eval --save_ckpt --max-train-length 512
+2025-12-04 04:03:29,694 - INFO - Successfully ran CoInception on FordA
+2025-12-04 04:03:29,695 - INFO - 
+============================================================
+2025-12-04 04:03:29,695 - INFO - FULL DATASET ANALYSIS SUMMARY
+2025-12-04 04:03:29,695 - INFO - ============================================================
+2025-12-04 04:03:29,695 - INFO - Total datasets processed: 1
+2025-12-04 04:03:29,695 - INFO - Successful runs: 1
+2025-12-04 04:03:29,695 - INFO - Failed runs: 0
+2025-12-04 04:03:29,696 - INFO - 
+Full dataset analysis completed!
