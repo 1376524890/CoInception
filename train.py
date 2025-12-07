@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser.add_argument('dataset', help='The dataset name')
     parser.add_argument('run_name', help='The folder name used to save model, output and evaluation metrics. This can be set to any word')
     parser.add_argument('--loader', type=str, required=True, help='The data loader used to load the experimental data. This can be set to UCR, UEA, forecast_csv, forecast_csv_univar, anomaly, or anomaly_coldstart')
-    parser.add_argument('--gpu', type=int, default=0, help='The gpu no. used for training and inference (defaults to 0)')
+    parser.add_argument('--gpu', type=str, default='0', help='The gpu no. used for training and inference, can be multiple GPUs separated by comma (defaults to 0)')
     parser.add_argument('--batch-size', type=int, default=8, help='The batch size (defaults to 8)')
     parser.add_argument('--lr', type=float, default=0.001, help='The learning rate (defaults to 0.001)')
     parser.add_argument('--repr-dims', type=int, default=320, help='The representation dimension (defaults to 320)')
@@ -59,7 +59,14 @@ if __name__ == '__main__':
     print("Dataset:", args.dataset)
     print("Arguments:", str(args))
     
-    device = init_dl_program(args.gpu, seed=args.seed, max_threads=args.max_threads)
+    # 处理多个GPU设备
+    if isinstance(args.gpu, str):
+        # 将字符串转换为设备列表，支持格式如 "0,1" 或 "cuda:0,cuda:1"
+        device_ids = [int(g.strip()) for g in args.gpu.split(',') if g.strip()]
+    else:
+        device_ids = [args.gpu]
+    
+    device = init_dl_program(device_ids, seed=args.seed, max_threads=args.max_threads)
     
     print('Loading data... ', end='')
     if args.loader == 'UCR':

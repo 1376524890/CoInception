@@ -1,0 +1,13 @@
+[2025-12-04 06:56:40] [[0;34mINFO[0m] Working directory: /home/codeserver/CoInception
+[2025-12-04 06:56:40] [[0;34mINFO[0m] Step 1: Running all datasets with preset parameters
+[2025-12-04 06:56:40] [[0;34mINFO[0m] Starting: Running all datasets
+[2025-12-04 06:56:40] [[0;34mINFO[0m] Command: python run_all_datasets.py --gpu 0 --parallel 1 --delay 0 --force-retrain false
+[2025-12-04 06:58:13] [[0;32mSUCCESS[0m] Completed: Running all datasets
+[2025-12-04 06:58:13] [[0;34mINFO[0m] Step 2: Generating tables from results
+[2025-12-04 06:58:13] [[0;34mINFO[0m] Starting: Generating all tables
+[2025-12-04 06:58:13] [[0;34mINFO[0m] Command: python generate_tables.py
+[2025-12-04 06:58:14] [[0;32mSUCCESS[0m] Completed: Generating all tables
+[2025-12-04 06:58:14] [[0;34mINFO[0m] Step 3: Generating visualizations
+[2025-12-04 06:58:14] [[0;34mINFO[0m] Starting: Generating all figures
+[2025-12-04 06:58:14] [[0;34mINFO[0m] Command: python visualize_figures.py
+[2025-12-04 06:58:14] [[0;31mERROR[0m] Failed: Generating all figures

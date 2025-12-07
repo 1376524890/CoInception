@@ -1,0 +1,13 @@
+[2025-12-04 07:00:10] [[0;34mINFO[0m] Starting CoInception Complete Analysis Pipeline
+[2025-12-04 07:00:10] [[0;34mINFO[0m] Analysis Run Log: analysis_run_20251204_070010.log
+[2025-12-04 07:00:10] [[0;34mINFO[0m] =
+[2025-12-04 07:00:10] [[0;34mINFO[0m] Command line arguments:
+[2025-12-04 07:00:10] [[0;34mINFO[0m]   GPU: 0
+[2025-12-04 07:00:10] [[0;34mINFO[0m]   Parallel: 1
+[2025-12-04 07:00:10] [[0;34mINFO[0m]   Delay: 0
+[2025-12-04 07:00:10] [[0;34mINFO[0m]   Skip datasets: false
+[2025-12-04 07:00:10] [[0;34mINFO[0m]   Skip tables: false
+[2025-12-04 07:00:10] [[0;34mINFO[0m]   Skip figures: false
+[2025-12-04 07:00:10] [[0;34mINFO[0m]   Auto-skip completed: false
+[2025-12-04 07:00:10] [[0;34mINFO[0m]   Force retrain: false
+[2025-12-04 07:00:10] [[0;34mINFO[0m] =

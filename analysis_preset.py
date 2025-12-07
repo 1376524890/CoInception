@@ -174,7 +174,8 @@ VIS_SETTINGS = {
             "title": 14,
             "sub_title": 12,
             "axis_label": 10,
-            "tick": 8
+            "tick": 8,
+            "legend": 10
         },
         "colors": {
             "class1": "purple",

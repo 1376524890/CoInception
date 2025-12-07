@@ -5,3 +5,4 @@ scripts/_nohup
 queue_run.sh.o*
 notebook/
 data/*
+results/*

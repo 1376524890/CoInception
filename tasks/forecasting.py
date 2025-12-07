@@ -17,8 +17,17 @@ def cal_metrics(pred, target):
         'MAE': np.abs(pred - target).mean()
     }
     
-def eval_forecasting(model, data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols):
-    padding = 200
+def eval_forecasting(model, data, train_slice, valid_slice, test_slice, scaler, pred_lens, n_covariate_cols, batch_size=32):
+    # 减小sliding_padding值以减少内存占用
+    padding = 100
+    
+    # 导入必要的库用于内存管理
+    import torch
+    import gc
+    
+    # 释放不需要的内存
+    gc.collect()
+    torch.cuda.empty_cache() if torch.cuda.is_available() else None
     
     t = time.time()
     all_repr = model.encode(
@@ -26,7 +35,7 @@ def eval_forecasting(model, data, train_slice, valid_slice, test_slice, scaler, 
         casual=True,
         sliding_length=1,
         sliding_padding=padding,
-        batch_size=256
+        batch_size=batch_size
     )
     coinception_infer_time = time.time() - t
     
@@ -37,6 +46,11 @@ def eval_forecasting(model, data, train_slice, valid_slice, test_slice, scaler, 
     train_data = data[:, train_slice, n_covariate_cols:]
     valid_data = data[:, valid_slice, n_covariate_cols:]
     test_data = data[:, test_slice, n_covariate_cols:]
+    
+    # 释放不需要的内存
+    del data, all_repr
+    gc.collect()
+    torch.cuda.empty_cache() if torch.cuda.is_available() else None
     
     ours_result = {}
     lr_train_time = {}
@@ -59,12 +73,31 @@ def eval_forecasting(model, data, train_slice, valid_slice, test_slice, scaler, 
         test_pred = test_pred.reshape(ori_shape)
         test_labels = test_labels.reshape(ori_shape)
         
+        # 处理预测结果和真实标签的逆变换
+        original_shape = test_pred.shape
+        
+        # 重塑为形状 (n_samples, n_features)
+        # 对于electricity数据集，test_data.shape[0] > 1，每个变量是一个实例
         if test_data.shape[0] > 1:
-            test_pred_inv = scaler.inverse_transform(test_pred.swapaxes(0, 3)).swapaxes(0, 3)
-            test_labels_inv = scaler.inverse_transform(test_labels.swapaxes(0, 3)).swapaxes(0, 3)
+            # 对于多变量时间序列，需要将变量维度移到最后
+            test_pred_reshaped = test_pred.swapaxes(0, 1).reshape(-1, test_data.shape[0])
+            test_labels_reshaped = test_labels.swapaxes(0, 1).reshape(-1, test_data.shape[0])
+            
+            # 应用逆变换
+            test_pred_inv_reshaped = scaler.inverse_transform(test_pred_reshaped)
+            test_labels_inv_reshaped = scaler.inverse_transform(test_labels_reshaped)
+            
+            # 恢复原始形状
+            test_pred_inv = test_pred_inv_reshaped.reshape(original_shape[1], original_shape[0], original_shape[2]).swapaxes(0, 1)
+            test_labels_inv = test_labels_inv_reshaped.reshape(original_shape[1], original_shape[0], original_shape[2]).swapaxes(0, 1)
         else:
-            test_pred_inv = scaler.inverse_transform(test_pred)
-            test_labels_inv = scaler.inverse_transform(test_labels)
+            # 单序列情况
+            test_pred_2d = test_pred.reshape(-1, original_shape[-1])
+            test_labels_2d = test_labels.reshape(-1, original_shape[-1])
+            test_pred_inv_2d = scaler.inverse_transform(test_pred_2d)
+            test_labels_inv_2d = scaler.inverse_transform(test_labels_2d)
+            test_pred_inv = test_pred_inv_2d.reshape(original_shape)
+            test_labels_inv = test_labels_inv_2d.reshape(original_shape)
             
         out_log[pred_len] = {
             'norm': test_pred,

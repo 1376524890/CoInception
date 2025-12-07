@@ -14,7 +14,32 @@ from typing import Dict, List, Tuple, Optional, Union
 import os
 
 # Set default font to match paper requirements
-plt.rcParams['font.family'] = 'Times New Roman'
+# Configure matplotlib to use system fonts without warnings
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning)
+
+# Configure matplotlib font settings
+import matplotlib.font_manager as fm
+
+# Find and set DejaVu Serif font properly
+font_list = fm.findSystemFonts()
+dejavu_fonts = [f for f in font_list if 'DejaVuSerif' in f]
+
+if dejavu_fonts:
+    # Use the first available DejaVu Serif font
+    font_path = dejavu_fonts[0]
+    font_prop = fm.FontProperties(fname=font_path)
+    plt.rcParams['font.family'] = font_prop.get_name()
+    plt.rcParams['font.serif'] = font_prop.get_name()
+else:
+    # Fallback to default serif
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = 'serif'
+
+plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams['font.size'] = 10
+
+print(f"Font configured: {plt.rcParams['font.family']}")
 
 
 def create_directory(dir_path: str) -> None:

@@ -164,12 +164,21 @@ def _get_time_features(dt):
         dt.day.to_numpy(),
         dt.dayofyear.to_numpy(),
         dt.month.to_numpy(),
-        dt.weekofyear.to_numpy(),
+        dt.isocalendar().week.to_numpy(),
     ], axis=1).astype(np.float32)
 
 
 def load_forecast_csv(name, univar=False):
-    data = pd.read_csv(f'./data/{name}.csv', index_col='date', parse_dates=True)
+    # Handle different data paths for different datasets
+    if name in ('ETTh1', 'ETTh2', 'ETTm1', 'ETTm2'):
+        data_path = f'./data/ETT/{name}.csv'
+    elif name == 'Electricity' or name == 'electricity':
+        # Electricity dataset uses lowercase filename
+        data_path = f'./data/electricity.csv'
+    else:
+        data_path = f'./data/{name}.csv'
+    
+    data = pd.read_csv(data_path, index_col='date', parse_dates=True)
     dt_embed = _get_time_features(data.index)
     n_covariate_cols = dt_embed.shape[-1]
     
@@ -207,7 +216,9 @@ def load_forecast_csv(name, univar=False):
         dt_embed = np.expand_dims(dt_scaler.transform(dt_embed), 0)
         data = np.concatenate([np.repeat(dt_embed, data.shape[0], axis=0), data], axis=-1)
     
-    if name in ('ETTh1', 'ETTh2', 'electricity'):
+    # Convert name to lowercase for case-insensitive matching
+    name_lower = name.lower()
+    if name_lower in ('etth1', 'etth2', 'electricity'):
         pred_lens = [24, 48, 168, 336, 720]
     else:
         pred_lens = [24, 48, 96, 288, 672]

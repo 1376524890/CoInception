@@ -19,8 +19,20 @@ def eval_classification(model, train_data, train_labels, test_data, test_labels,
         fit_clf = eval_protocols.fit_svm
     elif eval_protocol == 'knn':
         fit_clf = eval_protocols.fit_knn
+    elif eval_protocol == 'dtw':
+        fit_clf = eval_protocols.fit_dtw
+    elif eval_protocol == 'tnc':
+        fit_clf = eval_protocols.fit_tnc
+    elif eval_protocol == 'tst':
+        fit_clf = eval_protocols.fit_tst
+    elif eval_protocol == 'tstcc':
+        fit_clf = eval_protocols.fit_tstcc
+    elif eval_protocol == 'tloss':
+        fit_clf = eval_protocols.fit_tloss
+    elif eval_protocol == 'timesnet':
+        fit_clf = eval_protocols.fit_timesnet
     else:
-        assert False, 'unknown evaluation protocol'
+        assert False, f'unknown evaluation protocol: {eval_protocol}'
 
     def merge_dim01(array):
         return array.reshape(array.shape[0]*array.shape[1], *array.shape[2:])

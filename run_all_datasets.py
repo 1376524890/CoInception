@@ -22,6 +22,115 @@ from analysis_preset import (
 )
 
 
+def check_training_completion(dataset_name, run_args):
+    """Check if training for a dataset is already completed.
+    
+    Args:
+        dataset_name (str): Name of the dataset.
+        run_args (argparse.Namespace): Command-line arguments.
+    
+    Returns:
+        bool: True if training is completed, False otherwise.
+    """
+    # Check if force retrain is enabled
+    if run_args.force_retrain.lower() == 'true':
+        print(f"Force retrain enabled for {dataset_name}")
+        return False
+    
+    # Check for training directory and files
+    training_dir = "training"
+    if not os.path.exists(training_dir):
+        print(f"Training directory {training_dir} does not exist for {dataset_name}")
+        return False
+    
+    # Look for directories matching the dataset pattern
+    dataset_pattern = f"{dataset_name}__"
+    dataset_dirs = []
+    
+    for item in os.listdir(training_dir):
+        if os.path.isdir(os.path.join(training_dir, item)) and item.startswith(dataset_pattern):
+            dataset_dirs.append(item)
+    
+    if not dataset_dirs:
+        print(f"No training directories found for {dataset_name}")
+        return False
+    
+    # Check if the most recent training has all required files
+    # We assume the directories are named with timestamps, so the last one is the most recent
+    latest_dir = sorted(dataset_dirs)[-1]
+    model_path = os.path.join(training_dir, latest_dir, "model.pkl")
+    eval_path = os.path.join(training_dir, latest_dir, "eval_res.pkl")
+    
+    if os.path.exists(model_path) and os.path.exists(eval_path):
+        print(f"Training already completed for {dataset_name} (directory: {latest_dir})")
+        return True
+    else:
+        print(f"Training incomplete for {dataset_name} (directory: {latest_dir}, missing files)")
+        return False
+
+
+def check_anomaly_completion(dataset_name, setting, run_args):
+    """Check if training for an anomaly detection dataset is already completed.
+    
+    Args:
+        dataset_name (str): Name of the anomaly detection dataset.
+        setting (str): Setting for anomaly detection (normal or coldstart).
+        run_args (argparse.Namespace): Command-line arguments.
+    
+    Returns:
+        bool: True if training is completed, False otherwise.
+    """
+    # For anomaly detection, the dataset name includes the setting
+    combined_name = f"{dataset_name}_{setting}"
+    return check_training_completion(combined_name, run_args)
+
+
+def check_all_training_completion(datasets_to_run, run_args):
+    """Check if all training is already completed.
+    
+    Args:
+        datasets_to_run (dict): Dictionary of datasets to run.
+        run_args (argparse.Namespace): Command-line arguments.
+    
+    Returns:
+        bool: True if all training is completed, False otherwise.
+    """
+    print("Checking training completion status for all datasets...")
+    
+    incomplete_count = 0
+    total_count = 0
+    
+    for dataset_type, dataset_type_info in datasets_to_run.items():
+        datasets = dataset_type_info["datasets"]
+        
+        for dataset_name in datasets:
+            total_count += 1
+            
+            if dataset_type == "anomaly_detection":
+                # Check anomaly detection with different settings
+                if dataset_name in ANOMALY_SETTINGS:
+                    for setting in ANOMALY_SETTINGS[dataset_name]["settings"]:
+                        if not check_anomaly_completion(dataset_name, setting, run_args):
+                            incomplete_count += 1
+                else:
+                    # Default setting
+                    if not check_anomaly_completion(dataset_name, "normal", run_args):
+                        incomplete_count += 1
+            else:
+                # Check other dataset types
+                if not check_training_completion(dataset_name, run_args):
+                    incomplete_count += 1
+    
+    print(f"Training completion check: {total_count - incomplete_count}/{total_count} datasets completed")
+    
+    if incomplete_count == 0:
+        print("✅ All training already completed!")
+        return True
+    else:
+        print(f"⚠️  {incomplete_count}/{total_count} datasets need training")
+        return False
+
+
 def run_single_dataset(dataset_info, run_args):
     """Run the CoInception model on a single dataset.
     
@@ -48,6 +157,17 @@ def run_single_dataset(dataset_info, run_args):
         loader = "anomaly"
     else:
         raise ValueError(f"Unknown dataset type: {dataset_type}")
+    
+    # Check if training is already completed (skip if not force retrain)
+    if run_args.force_retrain.lower() != 'true':
+        if check_training_completion(dataset_name, run_args):
+            print(f"✅ Skipping {dataset_name} - training already completed")
+            return {
+                "dataset": dataset_name,
+                "status": "skipped",
+                "message": "Training already completed",
+                "command": f"Skipped: Training completed for {dataset_name}"
+            }
     
     # Get preset parameters
     preset_params = get_preset_params()
@@ -140,6 +260,18 @@ def run_anomaly_dataset(dataset_name, setting, run_args):
     Returns:
         dict: Results of the run.
     """
+    # Check if training is already completed (skip if not force retrain)
+    if run_args.force_retrain.lower() != 'true':
+        if check_anomaly_completion(dataset_name, setting, run_args):
+            print(f"✅ Skipping {dataset_name} ({setting}) - training already completed")
+            return {
+                "dataset": dataset_name,
+                "setting": setting,
+                "status": "skipped",
+                "message": "Training already completed",
+                "command": f"Skipped: Training completed for {dataset_name} ({setting})"
+            }
+    
     # Get preset parameters
     preset_params = get_preset_params()
     
@@ -280,6 +412,8 @@ def main():
     parser.add_argument('--dataset-type', type=str, default=None, 
                         help='Run only specific dataset type (ucr, uea, forecasting, anomaly_detection)')
     parser.add_argument('--dry-run', action='store_true', help='Print commands without executing them')
+    parser.add_argument('--force-retrain', type=str, default='false', 
+                        help='Force retrain even if previous training exists (true/false, default: false)')
     
     args = parser.parse_args()
     
@@ -331,6 +465,17 @@ def main():
     print(f"Total datasets to run: {total_datasets}")
     print("=" * 60)
     
+    # Check training completion status before running
+    print("\nChecking training completion status...")
+    if args.force_retrain.lower() != 'true':
+        all_completed = check_all_training_completion(datasets_to_run, args)
+        if all_completed:
+            print("✅ All training already completed! Skipping training step.")
+            print("Use --force-retrain true to force retraining.")
+            return
+    else:
+        print("Force retrain enabled - will retrain all datasets")
+    
     # Run datasets
     start_time = time.time()
     all_results = []
@@ -359,10 +504,12 @@ def main():
     success_count = sum(1 for r in all_results if r["status"] == "success")
     failed_count = sum(1 for r in all_results if r["status"] == "failed")
     error_count = sum(1 for r in all_results if r["status"] == "error")
+    skipped_count = sum(1 for r in all_results if r["status"] == "skipped")
     
     print(f"Success: {success_count}")
     print(f"Failed: {failed_count}")
     print(f"Error: {error_count}")
+    print(f"Skipped: {skipped_count}")
     
     # Save results to file
     results_file = os.path.join(PATH_CONFIG["results_dir"], f"all_datasets_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
@@ -372,7 +519,7 @@ def main():
         f.write(f"Run time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"Total runtime: {time.strftime('%H:%M:%S', time.gmtime(total_time))}\n")
         f.write(f"Total datasets: {len(all_results)}\n")
-        f.write(f"Success: {success_count}, Failed: {failed_count}, Error: {error_count}\n\n")
+        f.write(f"Success: {success_count}, Failed: {failed_count}, Error: {error_count}, Skipped: {skipped_count}\n\n")
         
         for i, result in enumerate(all_results, 1):
             f.write(f"Result {i}: {result['status']}\n")

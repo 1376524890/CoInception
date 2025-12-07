@@ -54,7 +54,19 @@ class CoInception:
         self.save_intermediate = save_intermediate
         self.save_path = save_path
         
-        self._net = InceptionTSEncoder(input_len=input_len, input_dims=input_dims, output_dims=output_dims, hidden_dims=hidden_dims, depth=depth).to(self.device)
+        # 检查是否有多个GPU可用
+        self.multi_gpu = isinstance(device, list) and len(device) > 1
+        
+        # 创建模型
+        base_net = InceptionTSEncoder(input_len=input_len, input_dims=input_dims, output_dims=output_dims, hidden_dims=hidden_dims, depth=depth)
+        
+        if self.multi_gpu:
+            # 使用DataParallel进行多GPU训练
+            self._net = torch.nn.DataParallel(base_net, device_ids=device).to(device[0])
+        else:
+            # 单GPU训练
+            self._net = base_net.to(self.device)
+        
         self.net = torch.optim.swa_utils.AveragedModel(self._net)
         self.net.update_parameters(self._net)
         
@@ -119,6 +131,14 @@ class CoInception:
         
         loss_log = []
         
+        # 获取用于数据移动的设备
+        if self.multi_gpu:
+            # 多GPU情况下，数据只需要移动到第一个设备
+            data_device = self.device[0]
+        else:
+            # 单GPU情况下，直接使用设备
+            data_device = self.device
+        
         while True:
             if n_epochs is not None and self.n_epochs >= n_epochs:
                 break
@@ -138,8 +158,9 @@ class CoInception:
                     window_offset = np.random.randint(x.size(1) - self.max_train_length + 1)
                     x = x[:, window_offset : window_offset + self.max_train_length]
                     x_smooth = x_smooth[:,  window_offset : window_offset + self.max_train_length]
-                x = x.to(self.device)
-                x_smooth = x_smooth.to(self.device)
+                # 将数据移动到正确的设备
+                x = x.to(data_device)
+                x_smooth = x_smooth.to(data_device)
                 
                 ts_l = x.size(1)
                 crop_l = np.random.randint(low=2 ** (self.temporal_unit + 1), high=ts_l+1)
@@ -224,7 +245,14 @@ class CoInception:
         return loss_log
     
     def _eval_with_pooling(self, x, mask=None, slicing=None, encoding_window=None):
-        out = self.net(x.to(self.device, non_blocking=True), mask)
+        # 获取用于数据移动的设备
+        if self.multi_gpu:
+            data_device = self.device[0]
+        else:
+            data_device = self.device
+        
+        # 将输入数据移动到正确的设备
+        out = self.net(x.to(data_device, non_blocking=True), mask)
         if encoding_window == 'full_series':
             if slicing is not None:
                 out = out[:, slicing]
@@ -290,6 +318,13 @@ class CoInception:
         org_training = self.net.training
         self.net.eval()
         
+        # 获取用于数据移动的设备
+        if self.multi_gpu:
+            data_device = self.device[0]
+        else:
+            data_device = self.device
+        
+        # 创建数据集和数据加载器
         dataset = TensorDataset(torch.from_numpy(data).to(torch.float))
         loader = DataLoader(dataset, batch_size=batch_size)
         
